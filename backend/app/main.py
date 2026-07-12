@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.analytics import get_tenant_summary
 from app.llm_service import ask_copilot
+from app.data_service import get_tenant_context
 
 app = FastAPI()
 
@@ -28,6 +28,7 @@ def chat(
     db: Session = Depends(get_db)
 ):
     user_message = payload.get("message", "")
-    context_data = get_tenant_summary(db, tenant_id)
-    ai_response = ask_copilot(user_message, tenant_id, context_data)
+    data_context = get_tenant_context(tenant_id)
+    print("DEBUG - LOADED CONTEXT:", data_context)
+    ai_response = ask_copilot(user_message, tenant_id, data_context)
     return {"tenant": tenant_id, "response": ai_response}
