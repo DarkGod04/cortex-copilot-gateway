@@ -1,4 +1,44 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+import json
+import re
 import ollama
+
+def extract_time_intent(user_query: str) -> dict:
+    # Timezone-aware current datetime for Dynamic Temporal Anchoring
+    current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
+    current_date_str = current_time.strftime("%B %d, %Y")
+
+    system_prompt = (
+        "You are a data routing agent. Your ONLY job is to extract timeframes from the user's query.\n"
+        f"The current date is {current_date_str}.\n"
+        "Respond STRICTLY with valid JSON and nothing else. No markdown, no backticks.\n"
+        "Keys must be: 'timeframe' (values: 'daily', 'monthly', 'all') and 'target_date' (format: 'YYYY-MM-DD' for daily, 'YYYY-MM' for monthly, or null).\n"
+        "If no date is specified, default to {'timeframe': 'all', 'target_date': None}."
+    )
+    
+    try:
+        response = ollama.chat(
+            model='phi3',
+            options={'temperature': 0.0},
+            messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': 'what was my peak demand on May 19th 2026?'},
+                {'role': 'assistant', 'content': '{"timeframe": "daily", "target_date": "2026-05-19"}'},
+                {'role': 'user', 'content': 'what is my bill for June?'},
+                {'role': 'assistant', 'content': '{"timeframe": "monthly", "target_date": "2026-06"}'},
+                {'role': 'user', 'content': user_query}
+            ]
+        )
+        
+        # Clean out any stray markdown if the model disobeys
+        raw_output = response['message']['content']
+        clean_json = re.sub(r'```(?:json)?\n?(.*?)\n?```', r'\1', raw_output, flags=re.DOTALL).strip()
+        return json.loads(clean_json)
+        
+    except Exception as e:
+        print(f"Router fallback triggered: {e}")
+        return {"timeframe": "all", "target_date": None}
 
 def ask_copilot(user_query: str, tenant_id: str, data_context: dict) -> str:
     # Curate context variables to strictly extract scalar values and ignore structured_insights
