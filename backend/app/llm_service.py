@@ -1,5 +1,6 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from typing import Optional
 import json
 import re
 import ollama
@@ -14,7 +15,7 @@ MONTH_MAP = {
     'oct': '10', 'nov': '11', 'dec': '12'
 }
 
-def _regex_extract_intent(user_query: str) -> dict | None:
+def _regex_extract_intent(user_query: str) -> Optional[dict]:
     """
     Fast, reliable regex-first intent extractor.
     Returns a dict if a date pattern is found, None otherwise (triggers LLM fallback).
@@ -93,7 +94,15 @@ def extract_time_intent(user_query: str) -> dict:
         logging.getLogger(__name__).info(f"--- ROUTER INTENT (regex): {regex_result} ---")
         return regex_result
 
-    # --- STEP 2: LLM fallback for ambiguous queries like "this month" / "yesterday" ---
+    # --- STEP 2: No date found → default to all-time immediately (avoids 2nd slow LLM call) ---
+    # Queries like "what caused the low PF?" or "show anomalies" have no date context → all-time is correct.
+    import logging
+    logging.getLogger(__name__).info("--- ROUTER INTENT (default): all-time, no date found in query ---")
+    return {"timeframe": "all", "target_date": None, "comparison_date": None}
+
+# --- LEGACY LLM ROUTER (kept for reference, not used in production) ---
+def _llm_extract_time_intent(user_query: str) -> dict:
+    """LLM-based intent extractor — only used for relative queries like 'this month'/'yesterday'."""
     current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
     current_date_str = current_time.strftime("%B %d, %Y")
 
