@@ -5,8 +5,95 @@ import re
 import ollama
 from app.data_service import get_tenant_context
 
+MONTH_MAP = {
+    'january': '01', 'february': '02', 'march': '03', 'april': '04',
+    'may': '05', 'june': '06', 'july': '07', 'august': '08',
+    'september': '09', 'october': '10', 'november': '11', 'december': '12',
+    'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
+    'jun': '06', 'jul': '07', 'aug': '08', 'sep': '09',
+    'oct': '10', 'nov': '11', 'dec': '12'
+}
+
+def _regex_extract_intent(user_query: str) -> dict | None:
+    """
+    Fast, reliable regex-first intent extractor.
+    Returns a dict if a date pattern is found, None otherwise (triggers LLM fallback).
+    """
+    q = user_query.lower().strip()
+    current_year = datetime.now(ZoneInfo("Asia/Kolkata")).year
+
+    # --- Pattern: Full date like "May 20, 2026" / "20th May 2026" / "2026-05-20" ---
+    # ISO date: 2026-05-20
+    iso_date = re.search(r'\b(\d{4})-(\d{2})-(\d{2})\b', q)
+    if iso_date:
+        return {"timeframe": "daily", "target_date": iso_date.group(0), "comparison_date": None}
+
+    # Named month + day + optional year: "May 20, 2026" / "20th May" / "May 20"
+    named_day = re.search(
+        r'\b(january|february|march|april|may|june|july|august|september|october|november|december|'
+        r'jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(\d{4})?\b',
+        q
+    )
+    if named_day:
+        month = MONTH_MAP[named_day.group(1)]
+        day = named_day.group(2).zfill(2)
+        year = named_day.group(3) or str(current_year)
+        return {"timeframe": "daily", "target_date": f"{year}-{month}-{day}", "comparison_date": None}
+
+    # Day first: "20th May 2026" / "20 May 2026"
+    day_first = re.search(
+        r'\b(\d{1,2})(?:st|nd|rd|th)?\s+(january|february|march|april|may|june|july|august|'
+        r'september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)'
+        r',?\s*(\d{4})?\b', q
+    )
+    if day_first:
+        day = day_first.group(1).zfill(2)
+        month = MONTH_MAP[day_first.group(2)]
+        year = day_first.group(3) or str(current_year)
+        return {"timeframe": "daily", "target_date": f"{year}-{month}-{day}", "comparison_date": None}
+
+    # --- Pattern: Comparison — "compare X with Y" or "X vs Y" ---
+    compare_keywords = ['compare', 'versus', ' vs ', 'compared to', 'against']
+    is_comparison = any(kw in q for kw in compare_keywords)
+
+    if is_comparison:
+        # Find all month+year occurrences
+        months_found = re.findall(
+            r'\b(january|february|march|april|may|june|july|august|september|october|november|december|'
+            r'jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\s*(\d{4})?\b', q
+        )
+        if len(months_found) >= 2:
+            def to_ym(m_tuple):
+                m, y = m_tuple
+                return f"{y or current_year}-{MONTH_MAP[m]}"
+            return {
+                "timeframe": "comparison",
+                "target_date": to_ym(months_found[0]),
+                "comparison_date": to_ym(months_found[1])
+            }
+
+    # --- Pattern: Month + Year only — "June 2026" / "bill for May" ---
+    month_year = re.search(
+        r'\b(january|february|march|april|may|june|july|august|september|october|november|december|'
+        r'jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\s*(\d{4})?\b', q
+    )
+    if month_year:
+        month = MONTH_MAP[month_year.group(1)]
+        year = month_year.group(2) or str(current_year)
+        return {"timeframe": "monthly", "target_date": f"{year}-{month}", "comparison_date": None}
+
+    return None  # No date found — defer to LLM
+
+
 def extract_time_intent(user_query: str) -> dict:
-    # Timezone-aware current datetime for Dynamic Temporal Anchoring
+    # --- STEP 1: Fast regex-first extraction (no LLM call, always reliable) ---
+    regex_result = _regex_extract_intent(user_query)
+    if regex_result is not None:
+        import logging
+        logging.getLogger(__name__).info(f"--- ROUTER INTENT (regex): {regex_result} ---")
+        return regex_result
+
+    # --- STEP 2: LLM fallback for ambiguous queries like "this month" / "yesterday" ---
     current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
     current_date_str = current_time.strftime("%B %d, %Y")
 
@@ -20,9 +107,9 @@ def extract_time_intent(user_query: str) -> dict:
         "- 'target_date' (format: 'YYYY-MM-DD' for daily, 'YYYY-MM' for monthly/comparison, or null)\n"
         "- 'comparison_date' (format: 'YYYY-MM-DD' for daily, 'YYYY-MM' for monthly, or null)\n"
         "If the user asks to compare two months or dates, set timeframe to 'comparison', target_date to the first/latest date, and comparison_date to the other date.\n"
-        "If no date is specified, default to {'timeframe': 'all', 'target_date': None, 'comparison_date': None}."
+        "If no date is specified, default to {\"timeframe\": \"all\", \"target_date\": null, \"comparison_date\": null}."
     )
-    
+
     try:
         response = ollama.chat(
             model='phi3',
@@ -38,10 +125,10 @@ def extract_time_intent(user_query: str) -> dict:
                 {'role': 'user', 'content': user_query}
             ]
         )
-        
+
         raw_output = response['message']['content']
         clean_json = re.sub(r'```(?:json)?\n?(.*?)\n?```', r'\1', raw_output, flags=re.DOTALL).strip()
-        
+
         try:
             return json.loads(clean_json)
         except Exception:
@@ -51,10 +138,11 @@ def extract_time_intent(user_query: str) -> dict:
             except Exception:
                 clean_json_fixed = clean_json.replace("'", '"').replace("None", "null").replace("True", "true").replace("False", "false")
                 return json.loads(clean_json_fixed)
-        
+
     except Exception as e:
         print(f"Router fallback triggered: {e}")
         return {"timeframe": "all", "target_date": None, "comparison_date": None}
+
 
 def ask_copilot(user_query: str, tenant_id: str, data_context: dict, intent: dict = None) -> str:
     # Fallback if no intent is provided
