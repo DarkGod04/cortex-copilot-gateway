@@ -43,12 +43,81 @@ sequenceDiagram
 
 ---
 
+## 🧠 Model Choice & Rationale
+
+We selected **`phi3` (3.8B parameters)** as our local LLM engine via Ollama:
+- **Zero In-Production API Costs**: Runs entirely locally on consumer CPUs/GPUs without subscription or usage-based billing.
+- **Strict Data Privacy**: Industrial telemetry logs and sensitive factory metrics never leave the local environment, satisfying corporate compliance standards.
+- **Exceptional Structured Capabilities**: Highly efficient at strict JSON generation and intent extraction under tight temperature parameters (`temperature = 0.0`).
+- **Low Latency**: Lightweight footprint ensures fast response cycles (sub-3 seconds) on edge nodes.
+
+---
+
+## 🎯 Fine-Tuning Details & Prompt Engineering
+
+Instead of expensive and static model fine-tuning, we utilized a combination of:
+1. **Dynamic Context Injection**: Aggregated telemetry metrics (total bill, peak kVA, average PF, active anomalies) are calculated from the live CSV dataset and injected directly into the LLM system prompt on-the-fly.
+2. **Balanced Few-Shot Examples**: Positive and negative query samples are dynamically constructed to align dates and numbers directly with the tenant context.
+3. **Strict Formatting Guardrails**: Rules enforced at the system prompt level mandate formatting guidelines (e.g. bolded metadata lines on separate newlines) and strict out-of-scope refusals (*"Data unavailable under current tenant configuration"*).
+
+---
+
+## 📊 Discovered Anomalies & Financial Impact
+
+The following key excursions were identified during telemetry dataset ingestion:
+
+### Tenant A (`tenant_a.csv`)
+1. **Demand Violation (May 20, 2026)**:
+   - *Timestamp*: `2026-05-20` (Peak reached `1002.75 kVA`).
+   - *Financial Impact*: **₹3,01,650.34** penalty (exceeded contract limit of `500.0 kVA`).
+2. **Demand Violation (June 2026 - Monthly Peak)**:
+   - *Timestamp*: `2026-06-15` (Peak reached `1471.85 kVA`).
+   - *Financial Impact*: **₹5,83,110.82** penalty (exceeded contract limit of `500.0 kVA`).
+3. **Power Factor Drop**:
+   - *Timestamp*: Persistent throughout May and June 2026 (Avg PF dropped to `-0.0003` indicating reactive power backflow).
+   - *Financial Impact*: Active penalty risk (1% of energy charge).
+4. **THD Excursion**:
+   - *Timestamp*: Exceeding 5% safety limit on voltage harmonics (`V_R_THD_Pct`).
+   - *Financial Impact*: Equipment degradation risk; estimated at **₹5,000.00** maintenance impact.
+
+### Tenant B (`tenant_b.csv`)
+- **Isolation**: Tenant B was derived by mapping telemetry files dynamically to lowercase with underscore normalization (`tenant_b.csv`).
+- **Telemetry Anomalies**: Similar demand violations and voltage imbalance thresholds were detected and calculated separately, verifying strict backend routing and zero cross-tenant leakage.
+
+---
+
+## 👥 Tenant Credentials for Judges
+
+To switch tenant scopes in the dashboard or via API testing, use the following isolation header parameters:
+
+- **Tenant A**: Include Header `X-Tenant-ID: Tenant_A` (Maps to `data/tenant_a.csv`).
+- **Tenant B**: Include Header `X-Tenant-ID: Tenant_B` (Maps to `data/tenant_b.csv`).
+
+---
+
+## ⚠️ Known Limitations
+
+1. **Local Model Fallbacks**: Smaller models (like `phi3`) can occasionally drift from strict JSON schemas. We resolved this by implementing an robust regex-backed `ast.literal_eval` Python parser in `llm_service.py` as a fallback.
+2. **Stateless WebSocket Ingestion**: Telemetry is currently read from local static CSV files rather than a live streaming database.
+
+---
+
+## 🔮 What We Would Do With 2 More Weeks
+
+If given 2 more weeks, we would implement:
+1. **Persistent Database Layer**: Replace static CSV files with a PostgreSQL/TimescaleDB setup, indexed on timestamps to optimize query speeds.
+2. **Retrieval-Augmented Generation (RAG)**: Feed factory machinery operating manuals and local regulatory PDFs (e.g. CEA/IEEE safety guidelines) into a Vector DB so the Copilot can answer technical trouble-shooting queries.
+3. **Multi-Parameter Interactive Charts**: Build a full frontend dashboard utilizing SVG line charts that display Current (I), Voltage (V), and Harmonic Distortion trends on separate toggles.
+4. **Edge Node Containerization**: Package the entire stack (React, FastAPI, Ollama) into a single Docker-Compose setup for instant plug-and-play installation on local factory gateway devices.
+
+---
+
 ## 🛠️ Installation & Setup
 
 ### Prerequisites
 - Python 3.10+
 - Node.js 18+
-- [Ollama](https://ollama.com/) installed and running locally with the `phi3` model loaded:
+- [Ollama](https://ollama.com/) running locally with the `phi3` model loaded:
   ```bash
   ollama run phi3
   ```
