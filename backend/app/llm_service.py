@@ -102,10 +102,10 @@ def ask_copilot(user_query: str, tenant_id: str, data_context: dict, intent: dic
         f"- Known Anomalies for Specified Scope: {clean_context['system_anomalies']}\n\n"
         
         f"STRICT RULES:\n"
-        f"1. FORMAT: You MUST use markdown bullet points. Do not write paragraphs. Keep answers strictly under 3 sentences.\n"
+        f"1. FORMAT: Do not use bullet points or lists starting with '*' or '-'. Instead, output each metric directly on a new line starting with bold text (e.g. '**Timeframe Scope:** ...'). Keep answers strictly under 3 sentences.\n"
         f"2. TONE: Be direct. Do not say 'as per our records' or 'please note'. Just give the numbers.\n"
         f"3. REFUSAL: If asked to write stories, roleplay, or perform general coding tasks outside context metrics, reply EXACTLY: 'Data unavailable under current tenant configuration.'\n"
-        f"4. ANOMALIES: If 'System Anomalies' is not 'None detected.', you MUST append a final bolded bullet point starting with 'CRITICAL ALERT:' detailing the exact anomaly.\n"
+        f"4. ANOMALIES: If 'System Anomalies' is not 'None detected.', you MUST append a final bolded line starting with '**CRITICAL ALERT:**' detailing the exact anomaly.\n"
         f"5. RULE: If the user asks for their bill, cost, or financial charges, provide the Total Bill value from the telemetry data context."
     )
 
@@ -118,13 +118,13 @@ def ask_copilot(user_query: str, tenant_id: str, data_context: dict, intent: dic
             
             # --- POSITIVE EXAMPLES ---
             {'role': 'user', 'content': 'what is my bill?'},
-            {'role': 'assistant', 'content': f"* **Timeframe Scope:** All-Time\n* **Total Bill:** Rs.{all_time_bill}"},
+            {'role': 'assistant', 'content': f"**Timeframe Scope:** All-Time\n**Total Bill:** Rs.{all_time_bill}"},
             
             {'role': 'user', 'content': 'what was my peak demand on June 15, 2026?'},
-            {'role': 'assistant', 'content': f"* **Timeframe Scope:** Daily (2026-06-15)\n* **Peak Demand:** {june15_peak} kVA"},
+            {'role': 'assistant', 'content': f"**Timeframe Scope:** Daily (2026-06-15)\n**Peak Demand:** {june15_peak} kVA"},
             
             {'role': 'user', 'content': 'compare my June 2026 peak demand with May 2026'},
-            {'role': 'assistant', 'content': f"* **Timeframe Scope:** Comparison (2026-06 vs 2026-05)\n* **Comparison Details:** {comp_details}"},
+            {'role': 'assistant', 'content': f"**Timeframe Scope:** Comparison (2026-06 vs 2026-05)\n**Comparison Details:** {comp_details}"},
             
             # --- NEGATIVE EXAMPLES ---
             {'role': 'user', 'content': 'write a python program'},
