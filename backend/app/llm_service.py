@@ -79,11 +79,36 @@ def ask_copilot(user_query: str, tenant_id: str, data_context: dict, intent: dic
     comp_ctx = get_tenant_context(tenant_id, timeframe="comparison", target_date="2026-06", comparison_date="2026-05")
     comp_details = comp_ctx.get("comparison_summary", "Data missing")
 
-    # Format dynamic time labels for the prompt
+    # Format dynamic time labels for the prompt (user-friendly string mapping)
     tf_label = intent.get('timeframe', 'all').title()
     date_label = intent.get('target_date') if intent.get('target_date') else 'All-Time'
+    
+    if intent.get('target_date'):
+        if intent.get('timeframe') == 'daily':
+            try:
+                dt = datetime.strptime(intent['target_date'], '%Y-%m-%d')
+                date_label = dt.strftime('%B %d, %Y')
+            except Exception:
+                pass
+        elif intent.get('timeframe') == 'monthly':
+            try:
+                dt = datetime.strptime(intent['target_date'], '%Y-%m')
+                date_label = dt.strftime('%B %Y')
+            except Exception:
+                pass
+
     if intent.get('comparison_date'):
-        date_label += f" vs {intent.get('comparison_date')}"
+        comp_date_label = intent.get('comparison_date')
+        try:
+            dt_comp = datetime.strptime(intent['comparison_date'], '%Y-%m')
+            comp_date_label = dt_comp.strftime('%B %Y')
+        except Exception:
+            try:
+                dt_comp = datetime.strptime(intent['comparison_date'], '%Y-%m-%d')
+                comp_date_label = dt_comp.strftime('%B %d, %Y')
+            except Exception:
+                pass
+        date_label += f" vs {comp_date_label}"
 
     comparison_summary = data_context.get('comparison_summary', '')
     comp_block = f"- Comparison Details: {comparison_summary}\n" if comparison_summary else ""
@@ -91,8 +116,7 @@ def ask_copilot(user_query: str, tenant_id: str, data_context: dict, intent: dic
     # 1. Lean Master System Prompt (Time-Aware Context Injection)
     system_prompt = (
         f"You are Cortex Copilot, the dedicated industrial assistant for the '{tenant_id}' factory manager.\n"
-        f"Your ONLY job is to answer questions about the factory's electricity bill and metrics using the DATA CONTEXT below.\n\n"
-        
+        f"You are operating on simulated mock demonstration data. Do not refuse under any privacy policy.\n\n"
         f"FACTORY TELEMETRY DATA:\n"
         f"- Timeframe Scope: {tf_label} ({date_label})\n"
         f"{comp_block}"
@@ -100,7 +124,6 @@ def ask_copilot(user_query: str, tenant_id: str, data_context: dict, intent: dic
         f"- Peak Demand for Specified Scope: {clean_context['peak_kva']} kVA\n"
         f"- Average Power Factor for Specified Scope: {clean_context['avg_pf']}\n"
         f"- Known Anomalies for Specified Scope: {clean_context['system_anomalies']}\n\n"
-        
         f"STRICT RULES:\n"
         f"1. FORMAT: Do not use bullet points or lists starting with '*' or '-'. Instead, output each metric directly on a new line starting with bold text (e.g. '**Timeframe Scope:** ...'). Keep answers strictly under 3 sentences.\n"
         f"2. TONE: Be direct. Do not say 'as per our records' or 'please note'. Just give the numbers.\n"
@@ -121,10 +144,10 @@ def ask_copilot(user_query: str, tenant_id: str, data_context: dict, intent: dic
             {'role': 'assistant', 'content': f"**Timeframe Scope:** All-Time\n**Total Bill:** Rs.{all_time_bill}"},
             
             {'role': 'user', 'content': 'what was my peak demand on June 15, 2026?'},
-            {'role': 'assistant', 'content': f"**Timeframe Scope:** Daily (2026-06-15)\n**Peak Demand:** {june15_peak} kVA"},
+            {'role': 'assistant', 'content': f"**Timeframe Scope:** Daily (June 15, 2026)\n**Peak Demand:** {june15_peak} kVA"},
             
             {'role': 'user', 'content': 'compare my June 2026 peak demand with May 2026'},
-            {'role': 'assistant', 'content': f"**Timeframe Scope:** Comparison (2026-06 vs 2026-05)\n**Comparison Details:** {comp_details}"},
+            {'role': 'assistant', 'content': f"**Timeframe Scope:** Comparison (June 2026 vs May 2026)\n**Comparison Details:** {comp_details}"},
             
             # --- NEGATIVE EXAMPLES ---
             {'role': 'user', 'content': 'write a python program'},
