@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 import json
 import re
 import ollama
+from app.data_service import get_tenant_context
 
 def extract_time_intent(user_query: str) -> dict:
     # Timezone-aware current datetime for Dynamic Temporal Anchoring
@@ -68,6 +69,16 @@ def ask_copilot(user_query: str, tenant_id: str, data_context: dict, intent: dic
         'system_anomalies': data_context.get('system_anomalies', 'None detected.')
     }
 
+    # Load few-shot values dynamically from the CSV file
+    all_time_ctx = get_tenant_context(tenant_id, timeframe="all")
+    all_time_bill = all_time_ctx.get("estimated_bill_inr", "Data missing")
+    
+    june15_ctx = get_tenant_context(tenant_id, timeframe="daily", target_date="2026-06-15")
+    june15_peak = june15_ctx.get("max_demand_kva", "Data missing")
+    
+    comp_ctx = get_tenant_context(tenant_id, timeframe="comparison", target_date="2026-06", comparison_date="2026-05")
+    comp_details = comp_ctx.get("comparison_summary", "Data missing")
+
     # Format dynamic time labels for the prompt
     tf_label = intent.get('timeframe', 'all').title()
     date_label = intent.get('target_date') if intent.get('target_date') else 'All-Time'
@@ -107,13 +118,13 @@ def ask_copilot(user_query: str, tenant_id: str, data_context: dict, intent: dic
             
             # --- POSITIVE EXAMPLES ---
             {'role': 'user', 'content': 'what is my bill?'},
-            {'role': 'assistant', 'content': "* **Timeframe Scope:** All-Time\n* **Total Bill:** Rs.5268340.57"},
+            {'role': 'assistant', 'content': f"* **Timeframe Scope:** All-Time\n* **Total Bill:** Rs.{all_time_bill}"},
             
             {'role': 'user', 'content': 'what was my peak demand on June 15, 2026?'},
-            {'role': 'assistant', 'content': "* **Timeframe Scope:** Daily (2026-06-15)\n* **Peak Demand:** 1002.75 kVA"},
+            {'role': 'assistant', 'content': f"* **Timeframe Scope:** Daily (2026-06-15)\n* **Peak Demand:** {june15_peak} kVA"},
             
             {'role': 'user', 'content': 'compare my June 2026 peak demand with May 2026'},
-            {'role': 'assistant', 'content': "* **Timeframe Scope:** Comparison (2026-06 vs 2026-05)\n* **Comparison Details:** Peak demand changed from 950.0 kVA (2026-05) to 1471.85 kVA (2026-06) (+54.9%)"},
+            {'role': 'assistant', 'content': f"* **Timeframe Scope:** Comparison (2026-06 vs 2026-05)\n* **Comparison Details:** {comp_details}"},
             
             # --- NEGATIVE EXAMPLES ---
             {'role': 'user', 'content': 'write a python program'},
