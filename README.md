@@ -101,7 +101,6 @@ To switch tenant scopes in the dashboard or via API testing, use the following i
 2. **Stateless WebSocket Ingestion**: Telemetry is currently read from local static CSV files rather than a live streaming database.
 
 ---
----
 
 ## 🛠️ Installation & Setup
 
