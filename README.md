@@ -101,15 +101,6 @@ To switch tenant scopes in the dashboard or via API testing, use the following i
 2. **Stateless WebSocket Ingestion**: Telemetry is currently read from local static CSV files rather than a live streaming database.
 
 ---
-
-## 🔮 What We Would Do With 2 More Weeks
-
-If given 2 more weeks, we would implement:
-1. **Persistent Database Layer**: Replace static CSV files with a PostgreSQL/TimescaleDB setup, indexed on timestamps to optimize query speeds.
-2. **Retrieval-Augmented Generation (RAG)**: Feed factory machinery operating manuals and local regulatory PDFs (e.g. CEA/IEEE safety guidelines) into a Vector DB so the Copilot can answer technical trouble-shooting queries.
-3. **Multi-Parameter Interactive Charts**: Build a full frontend dashboard utilizing SVG line charts that display Current (I), Voltage (V), and Harmonic Distortion trends on separate toggles.
-4. **Edge Node Containerization**: Package the entire stack (React, FastAPI, Ollama) into a single Docker-Compose setup for instant plug-and-play installation on local factory gateway devices.
-
 ---
 
 ## 🛠️ Installation & Setup
