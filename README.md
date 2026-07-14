@@ -1,5 +1,9 @@
 # Cortex Copilot - Intelligent Industrial Energy Gateway
 
+> [!IMPORTANT]
+> **🚀 Live Deployable Link (Reachable 14 July through 18 July)**: [https://big-tires-taste.loca.lt](https://big-tires-taste.loca.lt)  
+> *(Note: The live app is hosted via a secure Cloudflare/LocalTunnel bridge running local CPU Ollama inference to guarantee fast, private responses under 5 seconds, avoiding cloud server OOMs.)*
+
 Cortex Copilot is a state-of-the-art multi-tenant energy management copilot designed for industrial factory managers. It pairs local LLM intelligence with dynamic Pandas-based telemetry processing to extract real-time insights, answer timeframe-relative queries, compare historical usage, and push live anomaly alerts.
 
 ![Cortex Copilot Dashboard Screenshot](assets/dashboard_screenshot.png)

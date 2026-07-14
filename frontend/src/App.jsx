@@ -109,7 +109,7 @@ export default function App() {
     const fetchInsights = async () => {
       if (!tenant) return;
       const encodedTenant = encodeURIComponent(tenant);
-      const url = `http://127.0.0.1:8000/api/insights?tenant_id=${encodedTenant}`;
+      const url = `/api/insights?tenant_id=${encodedTenant}`;
       
       try {
         const response = await fetch(url);
@@ -140,7 +140,8 @@ export default function App() {
   useEffect(() => {
     if (!tenant) return;
     
-    const wsUrl = `ws://127.0.0.1:8000/ws/alerts/${tenant}`;
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/alerts/${tenant}`;
     const ws = new WebSocket(wsUrl);
     
     ws.onmessage = (event) => {
@@ -188,7 +189,7 @@ export default function App() {
 
   const getChatResponse = async (queryText) => {
     try {
-      const response = await fetch("http://localhost:8000/api/chat", {
+      const response = await fetch("/api/chat", {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

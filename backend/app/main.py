@@ -142,3 +142,20 @@ async def websocket_alerts(websocket: WebSocket, tenant_id: str):
     except Exception as e:
         logging.error("WebSocket error: %s", e)
         manager.disconnect(websocket)
+
+# Serve production React assets and index.html (Single Page App routing)
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
+dist_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../frontend/dist"))
+
+if os.path.exists(dist_dir):
+    app.mount("/assets", StaticFiles(directory=os.path.join(dist_dir, "assets")), name="assets")
+    
+    @app.get("/{fallback_path:path}")
+    def serve_frontend(fallback_path: str):
+        # Exclude API endpoints from routing to frontend fallback
+        if fallback_path.startswith("api/") or fallback_path.startswith("ws/"):
+            raise HTTPException(status_code=404, detail="API route not found")
+        return FileResponse(os.path.join(dist_dir, "index.html"))
