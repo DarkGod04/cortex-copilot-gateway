@@ -1,0 +1,102 @@
+================================================================================
+                    CORTEX COPILOT - PROJECT PITCH & EXPLANATION
+================================================================================
+
+Hey! Welcome to the team. Let me walk you through what I have built. 
+
+Imagine you are managing a massive industrial factory. Every month, you get a 
+complicated electricity bill. You've got contracts specifying how much peak 
+electricity (in kVA) you are allowed to draw, strict regulations about keeping 
+your Power Factor (PF) close to 1.0 (to avoid massive grid penalties), and concerns 
+about voltage harmonics (THD) ruining your heavy machinery.
+
+To keep track of this, your team records thousands of sensor data points in a 
+massive CSV file. But as a busy factory manager, you don't have the time to look 
+at spreadsheets, run Excel formulas, or write Python script queries just to find 
+out if you did something wrong.
+
+That's where "Cortex Copilot" comes in. 
+
+I built an AI-powered smart energy assistant for factory managers. You open the 
+dashboard, and instead of digging through spreadsheets, you simply talk to it in 
+plain English—like "What is my bill for June 2026?" or "Compare my June peak demand 
+with May 2026"—and it gives you the exact numbers in seconds!
+
+Here is how the magic works under the hood:
+
+--------------------------------------------------------------------------------
+1. THE 3-STEP PIPELINE (THE BACKEND FLOW)
+--------------------------------------------------------------------------------
+When you send a message, it doesn't just feed the entire text directly to a general 
+chatbot. Instead, it goes through a smart 3-step pipeline:
+
+* STEP 1: Intent Routing (The Traffic Controller)
+  We use a lightweight, local AI model called "phi3" running on your computer. 
+  Its only job is to read your query and decide the "timeframe intent". 
+  For example, if you ask "what was my peak demand on June 15?", it outputs:
+  { "timeframe": "daily", "target_date": "2026-06-15" }
+  It also understands comparison intents and extracts target vs comparison dates.
+
+* STEP 2: Pandas Data ETL (The Calculator)
+  Once the AI router tells us the timeframe, a Python backend script using the 
+  "Pandas" library instantly opens the factory's CSV data file, slices it to 
+  focus ONLY on that specific date or month, and calculates:
+  - The total estimated bill (in Indian Rupees).
+  - The maximum peak demand (in kVA) during that timeframe.
+  - The average Power Factor.
+  - Any active anomalies (e.g. if the demand exceeded contract limits).
+
+* STEP 3: Response Generator (The Presenter)
+  We inject these calculated numbers into a clean prompt context and pass it back 
+  to the LLM. The AI then formats a direct, bullet-free, bolded metadata answer 
+  such as:
+  **Timeframe Scope:** Daily (2026-06-15)
+  **Peak Demand:** 1002.75 kVA
+
+--------------------------------------------------------------------------------
+2. THE SUPER COOL FEATURES
+--------------------------------------------------------------------------------
+What makes this dashboard feel premium and interactive?
+
+* Dynamic SVG Area Charts: 
+  When the assistant returns timeseries metrics (like demand over time), it doesn't 
+  just show text. It draws a custom, zero-dependency SVG area chart inline 
+  inside the assistant's chat bubble! It adjusts dynamically to show hourly trends 
+  for daily queries, daily trends for monthly queries, or monthly trends.
+
+* Suggested Prompt Pills:
+  Instead of staring at a blank chat input, the gateway checks what anomalies are 
+  currently happening in your factory and dynamically suggests clickable pills 
+  like "Why is my Peak Demand exceeding limits?" or "Show my average Power Factor trend".
+
+* Real-Time WebSocket Alerts:
+  The dashboard keeps a live, open connection (using WebSockets) to the server. 
+  If a critical excursion happens (like a sudden drop in Power Factor or a Total 
+  Harmonic Distortion peak), warning cards pop up dynamically inside the chat stream.
+
+* Tenant Isolation (Security):
+  We support multiple factories (Tenant A and Tenant B). The backend checks the 
+  headers for every query and normalizes file paths to ensure a user from Tenant A 
+  can never leak or see data belonging to Tenant B.
+
+--------------------------------------------------------------------------------
+3. WHAT WE WOULD DO WITH 2 MORE WEEKS
+--------------------------------------------------------------------------------
+If we wanted to take this to a global production scale:
+- Database Upgrade: Migrate from loading CSV files to an indexed PostgreSQL/TimescaleDB 
+  database to handle millions of rows instantly.
+- RAG Integration: Connect the chatbot to PDF manuals for the factory's turbines 
+  and transformers so managers can ask troubleshooting questions.
+- Fine-Tuning: Fine-tune a dedicated 7B Parameter LLM on electrical grid terminology 
+  for higher reasoning.
+
+--------------------------------------------------------------------------------
+4. HOW YOU CAN RUN IT LOCAL:
+--------------------------------------------------------------------------------
+- Running Ollama locally: `ollama run phi3`
+- Backend: Run `pip install -r requirements.txt` and start with `uvicorn app.main:app --reload`
+- Frontend: Run `npm install` and start with `npm run dev`
+
+And that's it! A secure, local AI energy analyst that saves factories millions 
+in grid penalties through simple conversations.
+================================================================================
